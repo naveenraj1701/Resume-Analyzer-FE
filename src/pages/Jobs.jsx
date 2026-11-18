@@ -1,6 +1,7 @@
+
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { motion, AnimatePresence, animate } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import {
     FiArrowLeft,
     FiPlus,
@@ -18,9 +19,7 @@ import {
     FiZap,
     FiChevronDown,
     FiChevronUp,
-    FiSearch,
-    FiLayers,
-    FiGlobe,
+    FiSearch
 } from "react-icons/fi"
 import apiCall, { extractJobFromURL } from "../services/api"
 
@@ -40,13 +39,10 @@ const inputClass =
 
 const labelClass = "mb-1.5 block text-sm font-medium text-slate-900"
 
-// Thin, subtle scrollbar for the scrollable panels
 const scrollClass = "overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]"
 
-// Only the first few bullets show on a card, so cards stay short
 const BULLET_LIMIT = 3
 
-// Colors per job type (full class names so Tailwind can find them)
 const typeStyles = {
     "Full-time": { badge: "bg-indigo-50 text-indigo-600", accent: "bg-indigo-600" },
     "Part-time": { badge: "bg-sky-50 text-sky-600", accent: "bg-sky-500" },
@@ -55,7 +51,10 @@ const typeStyles = {
     Contract: { badge: "bg-violet-50 text-violet-600", accent: "bg-violet-500" },
 }
 
-const defaultTypeStyle = { badge: "bg-indigo-50 text-indigo-600", accent: "bg-indigo-600" }
+const defaultTypeStyle = {
+    badge: "bg-indigo-50 text-indigo-600",
+    accent: "bg-indigo-600"
+}
 
 const avatarGradients = [
     "from-indigo-500 to-violet-500",
@@ -71,25 +70,6 @@ function getAvatarGradient(name = "") {
     return avatarGradients[sum % avatarGradients.length]
 }
 
-// Number that counts up from 0
-function CountUp({ value }) {
-    const [display, setDisplay] = useState(0)
-
-    useEffect(() => {
-        const controls = animate(0, value, {
-            duration: 0.8,
-            ease: "easeOut",
-            onUpdate: (v) => setDisplay(Math.round(v)),
-        })
-
-        return () => controls.stop()
-    }, [value])
-
-    return <>{display}</>
-}
-
-// Turns a string (or array) into a clean list of items.
-// Multi-line text is split by line; a single paragraph is split by sentence.
 function splitToItems(value) {
     if (!value) return []
 
@@ -116,7 +96,6 @@ function formatSection(title, items) {
     return `${title}:\n` + items.map(text => `• ${text}`).join("\n")
 }
 
-// Parses saved description text into headings and bullet points for display
 function parseDescription(text) {
     if (!text) return []
 
@@ -125,7 +104,6 @@ function parseDescription(text) {
         .map(line => line.trim())
         .filter(Boolean)
 
-    // A single paragraph becomes one bullet per sentence
     if (lines.length === 1) {
         return splitToItems(lines[0]).map(item => ({ type: "bullet", text: item }))
     }
@@ -154,7 +132,6 @@ function DescriptionList({ text, expanded, onToggle }) {
         visible.push(block)
     }
 
-    // Don't leave a heading with no bullets under it
     if (visible.length > 0 && visible[visible.length - 1].type === "heading") {
         visible.pop()
     }
@@ -198,18 +175,6 @@ function DescriptionList({ text, expanded, onToggle }) {
                     )}
                 </button>
             )}
-        </div>
-    )
-}
-
-function StatTile({ icon, label, value }) {
-    return (
-        <div className="rounded-2xl bg-white/15 px-3 py-3 backdrop-blur">
-            <div className="text-lg text-indigo-100">{icon}</div>
-            <p className="mt-2 text-2xl font-bold leading-none">
-                <CountUp value={value} />
-            </p>
-            <p className="mt-1 text-xs text-indigo-100">{label}</p>
         </div>
     )
 }
@@ -283,7 +248,6 @@ function Jobs() {
 
             const details = result.jobDetails
 
-            // Build the description as clear bullet points
             const overview = formatSection("Overview", splitToItems(details.jobDescription))
             const responsibilities = formatSection("Responsibilities", splitToItems(details.responsibilities))
             const qualifications = formatSection("Qualifications", splitToItems(details.qualifications))
@@ -359,7 +323,6 @@ function Jobs() {
             jobType: job.jobType || "Full-time"
         })
 
-        // Scroll the left panel (desktop) and the page (mobile) back to the form
         leftPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" })
         window.scrollTo({ top: 0, behavior: "smooth" })
     }
@@ -382,13 +345,12 @@ function Jobs() {
         }
     }
 
-    // Stats for the job board card
     const companyCount = new Set(
         jobs.map(job => (job.companyName || "").trim().toLowerCase()).filter(Boolean)
     ).size
+
     const remoteCount = jobs.filter(job => job.jobType === "Remote").length
 
-    // Search + filter
     const query = search.trim().toLowerCase()
 
     const filteredJobs = jobs.filter(job => {
@@ -409,9 +371,7 @@ function Jobs() {
         type === "All" ? jobs.length : jobs.filter(job => job.jobType === type).length
 
     return (
-        // On large screens the page fits the window: the left column and the job list scroll on their own
         <div className="min-h-screen bg-slate-50 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
-            {/* Top bar */}
             <motion.header
                 initial={{ y: -40, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -439,12 +399,10 @@ function Jobs() {
             </motion.header>
 
             <main className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-6 lg:min-h-0 lg:flex-1 lg:grid-cols-5">
-                {/* LEFT: job board container + Create Job */}
                 <div
                     ref={leftPanelRef}
                     className={`space-y-6 lg:col-span-2 lg:min-h-0 lg:pb-2 lg:pr-2 ${scrollClass}`}
                 >
-                    {/* Job board container */}
                     <motion.section
                         initial={{ opacity: 0, y: 24 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -462,7 +420,6 @@ function Jobs() {
                             className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10"
                         />
 
-                        {/* Job board container */}
                         <div className="flex items-center justify-between rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 px-5 py-4 text-white shadow-md">
                             <div>
                                 <p className="text-xs text-indigo-100">Your job board</p>
@@ -470,14 +427,22 @@ function Jobs() {
                             </div>
 
                             <div className="flex gap-4 text-center">
-                                <div><p className="text-xl font-bold">{jobs.length}</p><p className="text-xs text-indigo-100">Jobs</p></div>
-                                <div><p className="text-xl font-bold">{companyCount}</p><p className="text-xs text-indigo-100">Companies</p></div>
-                                <div><p className="text-xl font-bold">{remoteCount}</p><p className="text-xs text-indigo-100">Remote</p></div>
+                                <div>
+                                    <p className="text-xl font-bold">{jobs.length}</p>
+                                    <p className="text-xs text-indigo-100">Jobs</p>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-bold">{companyCount}</p>
+                                    <p className="text-xs text-indigo-100">Companies</p>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-bold">{remoteCount}</p>
+                                    <p className="text-xs text-indigo-100">Remote</p>
+                                </div>
                             </div>
                         </div>
                     </motion.section>
 
-                    {/* Create / update job */}
                     <motion.form
                         initial={{ opacity: 0, y: 24 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -485,7 +450,6 @@ function Jobs() {
                         onSubmit={handleSubmit}
                         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
                     >
-                        {/* AI import */}
                         <AnimatePresence initial={false}>
                             {!editId && (
                                 <motion.div
@@ -562,7 +526,6 @@ function Jobs() {
                             )}
                         </AnimatePresence>
 
-                        {/* Title */}
                         <div className="mb-5 flex items-center justify-between">
                             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -578,7 +541,6 @@ function Jobs() {
                             )}
                         </div>
 
-                        {/* Fields */}
                         <div className="space-y-4">
                             <div>
                                 <label className={labelClass}>Job Title</label>
@@ -700,10 +662,11 @@ function Jobs() {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0 }}
-                                    className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${messageType === "error"
-                                        ? "border-rose-200 bg-rose-50 text-rose-600"
-                                        : "border-emerald-200 bg-emerald-50 text-emerald-600"
-                                        }`}
+                                    className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                                        messageType === "error"
+                                            ? "border-rose-200 bg-rose-50 text-rose-600"
+                                            : "border-emerald-200 bg-emerald-50 text-emerald-600"
+                                    }`}
                                 >
                                     <span className="mt-0.5 text-base">
                                         {messageType === "error" ? <FiAlertCircle /> : <FiCheckCircle />}
@@ -715,7 +678,6 @@ function Jobs() {
                     </motion.form>
                 </div>
 
-                {/* RIGHT: search container (fixed on top) + Available Jobs (scrolls) */}
                 <section className="flex flex-col lg:col-span-3 lg:min-h-0">
                     <motion.div
                         initial={{ opacity: 0, y: 24 }}
@@ -750,10 +712,11 @@ function Jobs() {
                                         key={type}
                                         type="button"
                                         onClick={() => setTypeFilter(type)}
-                                        className={`relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${active
-                                            ? "text-white"
-                                            : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900"
-                                            }`}
+                                        className={`relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                                            active
+                                                ? "text-white"
+                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+                                        }`}
                                     >
                                         {active && (
                                             <motion.span
@@ -774,7 +737,6 @@ function Jobs() {
                         </div>
                     </motion.div>
 
-                    {/* Scrollable job list */}
                     <div
                         className={`-mx-1 max-h-[75vh] px-1 pb-2 lg:max-h-none lg:min-h-0 lg:flex-1 ${scrollClass}`}
                     >
@@ -794,12 +756,12 @@ function Jobs() {
                                                 transition: { delay: Math.min(index, 6) * 0.05, duration: 0.35 }
                                             }}
                                             exit={{ opacity: 0, scale: 0.95 }}
-                                            className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-[border-color,box-shadow] hover:shadow-xl ${editId === job._id
-                                                ? "border-indigo-600"
-                                                : "border-slate-200 hover:border-indigo-200"
-                                                }`}
+                                            className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-[border-color,box-shadow] hover:shadow-xl ${
+                                                editId === job._id
+                                                    ? "border-indigo-600"
+                                                    : "border-slate-200 hover:border-indigo-200"
+                                            }`}
                                         >
-                                            {/* Colored edge by job type */}
                                             <span className={`absolute left-0 top-0 h-full w-1.5 ${typeStyle.accent}`} />
 
                                             <div className="p-5 pl-7">
@@ -836,7 +798,6 @@ function Jobs() {
                                                     </span>
                                                 </div>
 
-                                                {/* Job description as bullet points */}
                                                 <DescriptionList
                                                     text={job.jobDescription}
                                                     expanded={!!expandedIds[job._id]}
