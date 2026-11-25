@@ -29,11 +29,11 @@ const Payment = () => {
             }
 
             const result = await apiCall(
-                "/payment/create-order",
-                "POST",
-                { amount: 500 },
-                token
-            )
+    "/payment/create-order",
+    "POST",
+    { planId: "premium-job-match" },
+    token
+)
 
             const {
                 order_id,

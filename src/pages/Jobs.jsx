@@ -1,7 +1,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, scale } from "framer-motion"
 import {
     FiArrowLeft,
     FiPlus,
@@ -19,7 +19,8 @@ import {
     FiZap,
     FiChevronDown,
     FiChevronUp,
-    FiSearch
+    FiSearch,
+    FiArrowRight
 } from "react-icons/fi"
 import apiCall, { extractJobFromURL } from "../services/api"
 
@@ -197,6 +198,8 @@ function Jobs() {
 
     const [search, setSearch] = useState("")
     const [typeFilter, setTypeFilter] = useState("All")
+    const [applyEnabled, setApplyEnabled] = useState(false)
+    const [applyLink, setApplyLink] = useState("")
 
     const token = localStorage.getItem("token")
 
@@ -284,12 +287,28 @@ function Jobs() {
         try {
             setLoading(true)
 
+            if (applyEnabled && !applyLink.trim()) {
+                notify("Please enter the application URL", "error")
+                return
+            }
+
+            if (applyEnabled) {
+                try {
+                    new URL(applyLink.trim())
+                } catch {
+                    notify("Please enter a valid application URL", "error")
+                    return
+                }
+            }
+
             const jobData = {
                 ...form,
                 requiredSkills: form.requiredSkills
                     .split(",")
                     .map(skill => skill.trim())
-                    .filter(Boolean)
+                    .filter(Boolean),
+                applyEnabled,
+                applyLink: applyEnabled ? applyLink.trim() : ""
             }
 
             if (editId) {
@@ -302,6 +321,8 @@ function Jobs() {
 
             setForm(emptyForm)
             setJobURL("")
+            setApplyEnabled(false)
+            setApplyLink("")
             setEditId(null)
             await getJobs()
         } catch (err) {
@@ -323,6 +344,9 @@ function Jobs() {
             jobType: job.jobType || "Full-time"
         })
 
+        setApplyEnabled(!!job.applyEnabled)
+        setApplyLink(job.applyLink || "")
+
         leftPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" })
         window.scrollTo({ top: 0, behavior: "smooth" })
     }
@@ -330,6 +354,8 @@ function Jobs() {
     const handleCancelEdit = () => {
         setEditId(null)
         setForm(emptyForm)
+        setApplyEnabled(false)
+        setApplyLink("")
     }
 
     const handleDelete = async (jobId) => {
@@ -594,6 +620,47 @@ function Jobs() {
                                 <p className="mt-1 text-xs text-slate-500">Separate skills with commas</p>
                             </div>
 
+                            <div className="rounded-xl border border-slate-200 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900">Apply Now button</p>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            Enable this only when you have an external application link.
+                                        </p>
+                                    </div>
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => {
+                                            setApplyEnabled(!applyEnabled)
+                                            if (applyEnabled) setApplyLink("")
+                                        }}
+                                        whileHover={{ scale: 1.04 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white ${
+                                            applyEnabled
+                                                ? "bg-emerald-600 hover:bg-emerald-700"
+                                                : "bg-slate-500 hover:bg-slate-600"
+                                        }`}
+                                    >
+                                        {applyEnabled ? "Enabled" : "Disabled"}
+                                    </motion.button>
+                                </div>
+
+                                {applyEnabled && (
+                                    <div className="mt-4">
+                                        <label className={labelClass}>Application URL</label>
+                                        <input
+                                            type="url"
+                                            placeholder="https://company.com/careers/apply"
+                                            value={applyLink}
+                                            onChange={(e) => setApplyLink(e.target.value)}
+                                            className={inputClass}
+                                            required
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                                 <div>
                                     <label className={labelClass}>Location</label>
@@ -662,11 +729,10 @@ function Jobs() {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0 }}
-                                    className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
-                                        messageType === "error"
+                                    className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${messageType === "error"
                                             ? "border-rose-200 bg-rose-50 text-rose-600"
                                             : "border-emerald-200 bg-emerald-50 text-emerald-600"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="mt-0.5 text-base">
                                         {messageType === "error" ? <FiAlertCircle /> : <FiCheckCircle />}
@@ -712,11 +778,10 @@ function Jobs() {
                                         key={type}
                                         type="button"
                                         onClick={() => setTypeFilter(type)}
-                                        className={`relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                                            active
+                                        className={`relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${active
                                                 ? "text-white"
                                                 : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900"
-                                        }`}
+                                            }`}
                                     >
                                         {active && (
                                             <motion.span
@@ -756,11 +821,10 @@ function Jobs() {
                                                 transition: { delay: Math.min(index, 6) * 0.05, duration: 0.35 }
                                             }}
                                             exit={{ opacity: 0, scale: 0.95 }}
-                                            className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-[border-color,box-shadow] hover:shadow-xl ${
-                                                editId === job._id
+                                            className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-[border-color,box-shadow] hover:shadow-xl ${editId === job._id
                                                     ? "border-indigo-600"
                                                     : "border-slate-200 hover:border-indigo-200"
-                                            }`}
+                                                }`}
                                         >
                                             <span className={`absolute left-0 top-0 h-full w-1.5 ${typeStyle.accent}`} />
 
@@ -841,6 +905,17 @@ function Jobs() {
                                                         )}
                                                         Delete
                                                     </motion.button>
+                                                    {job.applyEnabled && job.applyLink && (
+                                                        <motion.button
+                                                            type="button"
+                                                            whileHover={{ scale: 1.04 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => window.open(job.applyLink, "_blank", "noopener,noreferrer")}
+                                                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                                                        >
+                                                            Apply Now <FiArrowRight />
+                                                        </motion.button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </motion.div>

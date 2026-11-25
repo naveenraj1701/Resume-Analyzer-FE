@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence, animate } from "framer-motion"
 import {
@@ -19,6 +19,7 @@ import {
     FiInbox,
     FiZap,
     FiPieChart,
+    FiUpload,
 } from "react-icons/fi"
 import apiCall from "../services/api"
 
@@ -167,6 +168,8 @@ function JobMatch() {
     const [deletingId, setDeletingId] = useState(null)
     const [message, setMessage] = useState("")
     const [messageType, setMessageType] = useState("success")
+    const [changingResume, setChangingResume] = useState(false)
+    const resumeInputRef = useRef(null)
 
     const token = localStorage.getItem("token")
 
@@ -178,7 +181,9 @@ function JobMatch() {
     const getData = useCallback(async () => {
         try {
             const result = await apiCall("/resume/all-resumes", "GET", null, token)
-            setResumes(result.resumes || [])
+            const latestResume = result.resumes?.[0] || null
+            setResumes(latestResume ? [latestResume] : [])
+            setResumeId(latestResume?._id || "")
         } catch (err) {
             console.log("Resume error:", err.message)
             setMessage("Resume: " + err.message)
@@ -205,6 +210,52 @@ function JobMatch() {
     useEffect(() => {
         getData()
     }, [getData])
+
+    const handleReplaceResume = async (e) => {
+        const file = e.target.files[0]
+        e.target.value = ""
+
+        if (!file) return
+
+        if (file.type !== "application/pdf") {
+            notify("Please select a PDF file", "error")
+            return
+        }
+
+        const formData = new FormData()
+        formData.append("resume", file)
+
+        try {
+            setChangingResume(true)
+            notify("Uploading and analyzing your new resume...")
+
+            const response = await fetch(
+                `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/resume/replace`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: formData
+                }
+            )
+
+            const result = await response.json()
+
+            if (!response.ok)
+                throw new Error(result.message || "Resume replacement failed")
+
+            setResumes([result.resume])
+            setResumeId(result.resume._id)
+            setAnalysis(null)
+            notify("Resume replaced and analyzed successfully!")
+        } catch (err) {
+            notify(err.message, "error")
+        } finally {
+            setChangingResume(false)
+        }
+    }
+
 
     const handleMatch = async (e) => {
         e.preventDefault()
@@ -327,22 +378,49 @@ function JobMatch() {
                         <div className="space-y-4">
                             <div>
                                 <label className={labelClass}>
-                                    <FiFileText className="text-indigo-600" /> Select Resume
+                                    <FiFileText className="text-indigo-600" /> Current Resume
                                 </label>
-                                <select
-                                    value={resumeId}
-                                    onChange={(e) => setResumeId(e.target.value)}
-                                    className={inputClass}
-                                    required
-                                >
-                                    <option value="">Choose Resume</option>
 
-                                    {resumes.map(resume => (
-                                        <option key={resume._id} value={resume._id}>
-                                            {resume.fileName}
-                                        </option>
-                                    ))}
-                                </select>
+                                <input
+                                    ref={resumeInputRef}
+                                    type="file"
+                                    accept="application/pdf"
+                                    onChange={handleReplaceResume}
+                                    className="hidden"
+                                />
+
+                                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                                        <FiFileText className="text-lg" />
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium text-slate-900">
+                                            {resumes.length > 0
+                                                ? resumes[0].fileName
+                                                : "No resume uploaded"}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            {resumes.length > 0
+                                                ? "Your resume is ready for matching"
+                                                : "Upload a PDF resume to get started"}
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => resumeInputRef.current?.click()}
+                                        disabled={changingResume || loading}
+                                        className="flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-50"
+                                    >
+                                        {changingResume ? (
+                                            <FiLoader className="animate-spin" />
+                                        ) : (
+                                            <FiUpload />
+                                        )}
+                                        {changingResume ? "Processing..." : "Change"}
+                                    </button>
+                                </div>
                             </div>
 
                             <div>
@@ -376,7 +454,7 @@ function JobMatch() {
                             whileHover={{ scale: loading || !canMatch ? 1 : 1.02 }}
                             whileTap={{ scale: loading || !canMatch ? 1 : 0.97 }}
                             type="submit"
-                            disabled={loading || !canMatch}
+                            disabled={loading || changingResume || !canMatch}
                             className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {loading ? (

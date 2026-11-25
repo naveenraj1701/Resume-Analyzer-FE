@@ -48,13 +48,17 @@ const deleteApplication = (id, token) => {
 const createInterview = (data, token) =>
     apiCall("/interview/create", "POST", data, token)
 
+const evaluateAnswer = (data, token) =>
+    apiCall("/interview/evaluate-answer", "POST", data, token)
+
 export {
     extractJobFromURL,
     createApplication,
     getAllApplications,
     updateApplication,
     deleteApplication,
-    createInterview
+    createInterview,
+    evaluateAnswer
 }
 
 export default apiCall

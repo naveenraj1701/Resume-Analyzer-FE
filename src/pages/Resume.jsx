@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react"
+
+import { Fragment, useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -154,11 +155,11 @@ function Resume() {
     const [message, setMessage] = useState("")
     const [messageType, setMessageType] = useState("success")
     const [loading, setLoading] = useState(false)
+    const [fetching, setFetching] = useState(true)
     const [dragActive, setDragActive] = useState(false)
     const [resume, setResume] = useState(null)
     const [analysis, setAnalysis] = useState(null)
 
-    // 0 = idle, 1 = uploading, 2 = extracting, 3 = analyzing, 4 = all done
     const [currentStep, setCurrentStep] = useState(0)
     const [failedStep, setFailedStep] = useState(0)
 
@@ -167,11 +168,88 @@ function Resume() {
         setMessageType(type)
     }
 
+    const restoreResumeData = (resumeData) => {
+        if (!resumeData) return
+
+        setResume(resumeData)
+
+        let feedback = {}
+
+        try {
+            feedback = typeof resumeData.feedback === "string"
+                ? JSON.parse(resumeData.feedback || "{}")
+                : resumeData.feedback || {}
+        } catch {
+            feedback = {}
+        }
+
+        const hasAnalysis =
+            resumeData.score !== undefined &&
+            (
+                Number(resumeData.score) > 0 ||
+                resumeData.skills?.length > 0 ||
+                resumeData.experience ||
+                Object.keys(feedback).length > 0
+            )
+
+        if (hasAnalysis) {
+            setAnalysis({
+                score: resumeData.score || 0,
+                skills: resumeData.skills || [],
+                experience: resumeData.experience || "",
+                strengths: feedback.strengths || [],
+                weaknesses: feedback.weaknesses || [],
+                suggestions: feedback.suggestions || []
+            })
+
+            setCurrentStep(4)
+            setFailedStep(0)
+        } else {
+            setAnalysis(null)
+            setCurrentStep(0)
+        }
+    }
+
+    const loadLatestResume = useCallback(async () => {
+        try {
+            setFetching(true)
+
+            const token = localStorage.getItem("token")
+
+            const result = await apiCall(
+                "/resume/all-resumes",
+                "GET",
+                null,
+                token
+            )
+
+            const latestResume = result.resumes?.[0] || null
+
+            if (latestResume) {
+                restoreResumeData(latestResume)
+            } else {
+                setResume(null)
+                setAnalysis(null)
+                setCurrentStep(0)
+                setFailedStep(0)
+            }
+        } catch (err) {
+            notify(err.message, "error")
+        } finally {
+            setFetching(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        loadLatestResume()
+    }, [loadLatestResume])
+
     const handleDrop = (e) => {
         e.preventDefault()
         setDragActive(false)
 
         const dropped = e.dataTransfer.files[0]
+
         if (dropped && dropped.type === "application/pdf") {
             setFile(dropped)
         } else {
@@ -179,7 +257,6 @@ function Resume() {
         }
     }
 
-    // Runs extract + analyze automatically, starting from the given step
     const runPipeline = async (resumeData, startStep = 2) => {
         const token = localStorage.getItem("token")
         let step = startStep
@@ -208,7 +285,23 @@ function Resume() {
             )
 
             setAnalysis(result.analysis)
+
+            setResume(prev => ({
+                ...prev,
+                ...resumeData,
+                score: result.analysis?.score || 0,
+                skills: result.analysis?.skills || [],
+                experience: result.analysis?.experience || "",
+                feedback: JSON.stringify({
+                    strengths: result.analysis?.strengths || [],
+                    weaknesses: result.analysis?.weaknesses || [],
+                    suggestions: result.analysis?.suggestions || []
+                })
+            }))
+
             setCurrentStep(4)
+            setFailedStep(0)
+
             notify(result.message || "Resume uploaded and analyzed successfully")
         } catch (err) {
             setFailedStep(step)
@@ -256,7 +349,6 @@ function Resume() {
 
             setResume(result.resume)
 
-            // Upload done: continue automatically with extract and analyze
             await runPipeline(result.resume, 2)
         } catch (err) {
             setFailedStep(1)
@@ -267,6 +359,8 @@ function Resume() {
     }
 
     const handleRetry = async () => {
+        if (!resume) return
+
         const startStep = failedStep
 
         setLoading(true)
@@ -279,8 +373,10 @@ function Resume() {
     }
 
     const score = Number(analysis?.score) || 0
+
     const scoreColor =
         score >= 75 ? "bg-emerald-500" : score >= 50 ? "bg-amber-500" : "bg-rose-500"
+
     const scoreText =
         score >= 75 ? "text-emerald-600" : score >= 50 ? "text-amber-600" : "text-rose-600"
 
@@ -289,7 +385,6 @@ function Resume() {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* Top bar */}
             <motion.header
                 initial={{ y: -40, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -317,7 +412,6 @@ function Resume() {
             </motion.header>
 
             <main className="mx-auto max-w-6xl px-6 py-8">
-                {/* Progress stepper */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -380,7 +474,6 @@ function Resume() {
                 </motion.div>
 
                 <div className="grid gap-6 lg:grid-cols-5">
-                    {/* Left column: upload */}
                     <motion.div
                         variants={container}
                         initial="hidden"
@@ -408,7 +501,7 @@ function Resume() {
                                 onDragLeave={() => setDragActive(false)}
                                 onDrop={handleDrop}
                                 className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
-                                    loading ? "pointer-events-none opacity-60" : ""
+                                    loading || fetching ? "pointer-events-none opacity-60" : ""
                                 } ${
                                     dragActive
                                         ? "border-indigo-600 bg-indigo-50"
@@ -427,7 +520,9 @@ function Resume() {
                                         <p className="max-w-full truncate text-sm font-medium text-slate-900">
                                             {file.name}
                                         </p>
-                                        <p className="mt-1 text-xs text-slate-500">Click to choose a different file</p>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            Click to choose a different file
+                                        </p>
                                     </>
                                 ) : (
                                     <>
@@ -451,7 +546,7 @@ function Resume() {
                                 whileHover={{ scale: loading ? 1 : 1.02 }}
                                 whileTap={{ scale: loading ? 1 : 0.97 }}
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || fetching}
                                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {loading ? (
@@ -465,7 +560,6 @@ function Resume() {
                                 )}
                             </motion.button>
 
-                            {/* Retry a failed extract/analyze step without uploading again */}
                             <AnimatePresence>
                                 {!loading && resume && failedStep > 1 && (
                                     <motion.button
@@ -481,7 +575,6 @@ function Resume() {
                                 )}
                             </AnimatePresence>
 
-                            {/* Uploaded file */}
                             <AnimatePresence>
                                 {resume && (
                                     <motion.div
@@ -513,7 +606,6 @@ function Resume() {
                             </AnimatePresence>
                         </motion.form>
 
-                        {/* Status message */}
                         <AnimatePresence>
                             {message && (
                                 <motion.div
@@ -536,7 +628,6 @@ function Resume() {
                         </AnimatePresence>
                     </motion.div>
 
-                    {/* Right column: analysis */}
                     <div className="lg:col-span-3">
                         <AnimatePresence mode="wait">
                             {analysis ? (
@@ -547,7 +638,6 @@ function Resume() {
                                     animate="show"
                                     className="space-y-4"
                                 >
-                                    {/* Score */}
                                     <motion.div
                                         variants={item}
                                         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
@@ -573,7 +663,6 @@ function Resume() {
                                         </div>
                                     </motion.div>
 
-                                    {/* Skills */}
                                     {analysis.skills?.length > 0 && (
                                         <motion.div
                                             variants={item}
@@ -596,7 +685,6 @@ function Resume() {
                                         </motion.div>
                                     )}
 
-                                    {/* Experience */}
                                     {analysis.experience && (
                                         <motion.div
                                             variants={item}
@@ -619,6 +707,7 @@ function Resume() {
                                         dotClass="bg-emerald-600"
                                         items={analysis.strengths}
                                     />
+
                                     <ListSection
                                         title="Weaknesses"
                                         icon={<FiAlertCircle />}
@@ -626,6 +715,7 @@ function Resume() {
                                         dotClass="bg-rose-600"
                                         items={analysis.weaknesses}
                                     />
+
                                     <ListSection
                                         title="Suggestions"
                                         icon={<FiInfo />}
@@ -634,7 +724,7 @@ function Resume() {
                                         items={analysis.suggestions}
                                     />
                                 </motion.div>
-                            ) : loading ? (
+                            ) : loading || fetching ? (
                                 <motion.div
                                     key="loading"
                                     initial={{ opacity: 0 }}
@@ -650,7 +740,7 @@ function Resume() {
                                         <div className="h-3 rounded-full bg-slate-100" />
                                     </div>
 
-                                    {[1, 2, 3].map((n) => (
+                                    {[1, 2, 3].map(n => (
                                         <div
                                             key={n}
                                             className="animate-pulse rounded-xl border border-slate-200 bg-white p-5"
