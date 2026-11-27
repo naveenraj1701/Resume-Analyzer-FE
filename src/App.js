@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Register from "./pages/Register"
 import Login from "./pages/Login"
 import Dashboard from "./pages/Dashboard"
@@ -7,6 +7,7 @@ import Jobs from "./pages/Jobs"
 import ProtectedJobMatch from "./components/Payment/ProtectedJobMatch"
 import ApplicationTracker from "./pages/ApplicationTracker"
 import InterviewPreparation from "./pages/InterviewPreparation"
+import AdminDashboard from "./pages/AdminDashboard"
 
 function App() {
     return (
@@ -20,6 +21,8 @@ function App() {
                 <Route path="/job-match" element={<ProtectedJobMatch />} />
                 <Route path="/applications" element={<ApplicationTracker />} />
                 <Route path="/interview-preparation" element={<InterviewPreparation />} />
+                <Route path="/admin" element={<AdminDashboard />}
+/>
             </Routes>
         </BrowserRouter>
     )

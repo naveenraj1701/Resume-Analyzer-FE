@@ -172,7 +172,7 @@ function Dashboard() {
                                     to="/jobs"
                                     className="block rounded-lg border border-white/30 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
                                 >
-                                    Manage jobs
+                                    Career Opportunities
                                 </Link>
                             </motion.div>
                         </div>
@@ -205,16 +205,16 @@ function Dashboard() {
                     <FeatureCard
                         to="/jobs"
                         icon={<FiBriefcase />}
-                        title="Job Management"
-                        description="Create and manage job descriptions."
+                        title="Explore Opportunities"
+                        description="Discover available jobs and find opportunities that match your skills."
                     />
 
-                    <FeatureCard
+                    {/* <FeatureCard
                         to="/applications"
                         icon={<FiBriefcase />}
                         title="Application Tracker"
                         description="Track your job applications, interview status, offers, and notes."
-                    />
+                    /> */}
                     <FeatureCard
                         to="/interview-preparation"
                         icon={<FiMessageSquare />}
